@@ -44,7 +44,7 @@ describe("Lottery", () => {
     assert.ok(lottery.susd);
   });
 
-  it("can receive susd to pool", async () => {
+  it("can receive susd to prize pool", async () => {
     await susd.approve(lottery.address, tokens(10));
 
     await lottery.enterLottery();
@@ -60,9 +60,5 @@ describe("Lottery", () => {
 
     const lotteryBalance = await susd.balanceOf(lottery.address);
     assert.equal(lotteryBalance, tokens(10));
-
-    const activePlayers = await lottery.getActivePlayers();
-    assert.equal(1, activePlayers.length);
-    assert.equal(abe, activePlayers[0]);
   });
 });
