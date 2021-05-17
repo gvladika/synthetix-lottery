@@ -17,6 +17,7 @@ contract Lottery is ERC721 {
 
     struct Ticket {
         bool isWinning;
+        bool isClaimed;
         uint256 prize;
     }
 
@@ -26,7 +27,7 @@ contract Lottery is ERC721 {
     }
 
     function enterLottery() external {
-        tickets.push(Ticket(false, 0));
+        tickets.push(Ticket(false, false, 0));
         uint256 ticketId = tickets.length - 1;
         super._safeMint(msg.sender, ticketId);
 
@@ -39,7 +40,7 @@ contract Lottery is ERC721 {
 
         roundEndIndex = tickets.length - 1;
         require(
-            roundEndIndex - roundStartIndex >= 3,
+            (roundEndIndex - roundStartIndex + 1) >= 3,
             "At least 3 tickets are required"
         );
 
@@ -76,6 +77,20 @@ contract Lottery is ERC721 {
         _startNewRound();
     }
 
+    function claimPrize(uint256 ticketId) external {
+        require(
+            super.ownerOf(ticketId) == msg.sender,
+            "Only ticket owner can claim prize"
+        );
+
+        Ticket storage ticket = tickets[ticketId];
+        require(ticket.isWinning, "Not a winning ticket");
+        require(!ticket.isClaimed, "Ticket already claimed");
+
+        susd.transfer(msg.sender, ticket.prize);
+        ticket.isClaimed = true;
+    }
+
     function _startNewRound() private {
         currentPrizePoolInSusd = 0;
         roundStartIndex = roundEndIndex + 1;
@@ -95,7 +110,11 @@ contract Lottery is ERC721 {
         returns (uint256)
     {
         uint256 tempHash = uint256(keccak256(abi.encode(randomNumber, nonce)));
-        uint256 range = roundEndIndex - roundStartIndex;
+        uint256 range = roundEndIndex - roundStartIndex + 1;
         return roundStartIndex + (tempHash % range);
+    }
+
+    function getTickets() public view returns (Ticket[] memory) {
+        return tickets;
     }
 }
