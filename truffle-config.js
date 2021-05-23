@@ -18,11 +18,12 @@
  *
  */
 
-// const HDWalletProvider = require('@truffle/hdwallet-provider');
-// const infuraKey = "fj4jll3k.....";
-//
-// const fs = require('fs');
-// const mnemonic = fs.readFileSync(".secret").toString().trim();
+const HDWalletProvider = require("@truffle/hdwallet-provider");
+const NonceTrackerSubprovider = require("web3-provider-engine/subproviders/nonce-tracker");
+
+const fs = require("fs");
+const SECRET = fs.readFileSync(".secret").toString().trim();
+const ENDPOINT = fs.readFileSync(".endpoint").toString().trim();
 
 module.exports = {
   /**
@@ -45,7 +46,18 @@ module.exports = {
     development: {
       host: "127.0.0.1", // Localhost (default: none)
       port: 7545, // Standard Ethereum port (default: none)
-      network_id: "*", // Any network (default: none)
+      network_id: "5777", // Any network (default: none)
+    },
+    kovan: {
+      provider: function () {
+        let wallet = new HDWalletProvider(SECRET, ENDPOINT);
+        let nonceTracker = new NonceTrackerSubprovider();
+        wallet.engine._providers.unshift(nonceTracker);
+        nonceTracker.setEngine(wallet.engine);
+        return wallet;
+      },
+      network_id: 42,
+      skipDryRun: true,
     },
     // Another network with more advanced options...
     // advanced: {
@@ -76,13 +88,13 @@ module.exports = {
 
   // Set default mocha options here, use special reporters etc.
   mocha: {
-    timeout: 15000,
+    timeout: 300000,
   },
 
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.4", // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.8.0", // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
       // settings: {          // See the solidity docs for advice about optimization and evmVersion
       //  optimizer: {
