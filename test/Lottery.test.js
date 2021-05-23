@@ -98,10 +98,10 @@ contract("Lottery", async () => {
 
     await lottery.claimPrize(billsTicketIndex, { from: bill });
 
+    // check bill's balance increased, and lottery contract's balance decreased
     const billSusdBalanceAfter = await susd.balanceOf(bill);
     const lotterySusdBalanceAfter = await susd.balanceOf(lottery.address);
 
-    // check bill's balance increased, and lottery contract's balance decreased
     assert(billSusdBalanceAfter > billSusdBalanceBefore);
     assert(lotterySusdBalanceAfter < lotterySusdBalanceBefore);
 
@@ -113,5 +113,77 @@ contract("Lottery", async () => {
       lottery.claimPrize(billsTicketIndex, { from: bill }),
       "Ticket already claimed"
     );
+  });
+
+  it("allows claims of transfered tickets", async () => {
+    // Abe has 0 tickets
+    let abeNumOfTickets = await lottery.balanceOf(abe);
+    assert.equal(abeNumOfTickets.toString(), "0");
+
+    // Cai has 1 ticket
+    let caiNumOfTickets = await lottery.balanceOf(cai);
+    assert.equal(caiNumOfTickets.toString(), "1");
+
+    // Cai transfers his ticket to Abe
+    const ticketId = 1;
+    await lottery.transferFrom(cai, abe, ticketId, { from: cai });
+
+    // Abe should now own 1 ticket, and Cai 0
+    abeNumOfTickets = await lottery.balanceOf(abe);
+    assert.equal(abeNumOfTickets.toString(), "1");
+    caiNumOfTickets = await lottery.balanceOf(cai);
+    assert.equal(caiNumOfTickets.toString(), "0");
+
+    // Cai can't claim ticket which he transfered to Abe
+    await expectRevert(
+      lottery.claimPrize(ticketId, { from: cai }),
+      "Only ticket owner can claim prize"
+    );
+
+    // Abe can claim the prize
+    await lottery.claimPrize(ticketId, { from: abe });
+
+    tickets = await lottery.getTickets();
+    assert(tickets[ticketId].isClaimed);
+  });
+
+  it("runs multiple rounds", async () => {
+    // So far there were 3 tickets
+    tickets = await lottery.getTickets();
+    assert.equal(tickets.length, 3);
+
+    // Bill buys 5 new tickets in 2nd round
+    await susd.approve(lottery.address, tokens(5), { from: bill });
+    for (i = 0; i < 5; i++) {
+      await lottery.buyLotteryTicket({ from: bill });
+    }
+
+    // Now 8 tickets in total
+    tickets = await lottery.getTickets();
+    assert.equal(tickets.length, 8);
+
+    // travel ahead 6 hours and select winners of 2nd round
+    // (by non-owner user, for test)
+    await timeMachine.advanceTimeAndBlock(6 * 60 * 60);
+    const receipt = await lottery.selectRoundWinners({ from: dona });
+    expectEvent(receipt, "WinnersSelected");
+
+    // in total there should be 3 winning non-claimed tickets
+    tickets = await lottery.getTickets();
+    assert.equal(tickets.filter((x) => x.isWinning && !x.isClaimed).length, 4);
+
+    // bill claims his unclaimed winning tickets
+    for (const ticket of tickets) {
+      if (ticket.isWinning && !ticket.isClaimed) {
+        owner = await lottery.ownerOf(tickets.indexOf(ticket));
+        if (owner == bill) {
+          await lottery.claimPrize(tickets.indexOf(ticket), { from: bill });
+        }
+      }
+    }
+
+    // in total there should be 1 winning non-claimed tickets
+    tickets = await lottery.getTickets();
+    assert.equal(tickets.filter((x) => x.isWinning && !x.isClaimed).length, 1);
   });
 });

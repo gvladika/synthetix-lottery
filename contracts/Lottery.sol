@@ -2,11 +2,21 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@chainlink/contracts/src/v0.8/dev/VRFConsumerBase.sol";
-import "./IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+/**
+ * @notice implementation of Synthetix Lottery
+ * @dev Synthetix Lottery lets users buy tickets with their sUSD. Tickets
+ * are represented as NFTs, minted upon purchase. Since tickets conform to
+ * ERC721, they can be re-transfered. Ticket price is fixed to 1 sUSD. Every
+ * round of lottery lasts for limited amount of time. In addition, to
+ * successfully finish round, at least 3 tickets must be bought. Then,
+ * anyone can call `selectRoundWinners` function which will use Chainlink's
+ * VRF to randomly select 3 winners. Owners of tickets can claim their
+ * prize at any point.
+ * @author Goran Vladika
+ */
 contract Lottery is ERC721, VRFConsumerBase {
-    address public owner;
-
     // ticket is NFT minted to sender upon buying the ticket
     struct Ticket {
         bool isWinning;
@@ -27,9 +37,9 @@ contract Lottery is ERC721, VRFConsumerBase {
     // ticket cost is fixed to 1 sUSD
     uint256 public constant ticketCost = 1 * 10**18;
 
-    // lottery round has starting and ending index, and prize pool in sUSD
+    // lottery round has starting index, and prize pool in sUSD
     uint256 public currentPrizePoolInSusd;
-    uint256 private roundStartIndex;
+    uint256 public roundStartIndex;
 
     // each rounds lasts for this amount of time
     uint256 private roundDuration = 6 hours;
@@ -40,11 +50,17 @@ contract Lottery is ERC721, VRFConsumerBase {
     uint256 private feeInLink;
     address private vrfCoordinator;
 
-    // event is emitted when winners of lottery round are selected
+    // emitted when winners of lottery round are selected
     event WinnersSelected(
         uint256 indexed ticketIdWinner,
         uint256 indexed ticketIdSecondPlace,
         uint256 indexed ticketIdThirdPlace
+    );
+
+    // emitted when new round is started
+    event NewLotteryRoundStarted(
+        uint256 ticketStartingIndex,
+        uint256 roundEndTime
     );
 
     /**
@@ -60,13 +76,14 @@ contract Lottery is ERC721, VRFConsumerBase {
         bytes32 _keyHash,
         uint256 _feeInLink
     ) ERC721(NAME, SYMBOL) VRFConsumerBase(_vrfCoordinator, _link) {
-        owner = msg.sender;
         susd = _susd;
         vrfCoordinator = _vrfCoordinator;
         keyHash = _keyHash;
         feeInLink = _feeInLink;
 
+        // start timer and announce lottery has started
         roundEndTime = block.timestamp + roundDuration;
+        emit NewLotteryRoundStarted(roundStartIndex, roundEndTime);
     }
 
     /**
@@ -195,6 +212,7 @@ contract Lottery is ERC721, VRFConsumerBase {
         currentPrizePoolInSusd = 0;
         roundStartIndex = tickets.length;
         roundEndTime = block.timestamp + roundDuration;
+        emit NewLotteryRoundStarted(roundStartIndex, roundEndTime);
     }
 
     /**
