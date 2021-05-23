@@ -1,86 +1,136 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@chainlink/contracts/src/v0.8/dev/VRFConsumerBase.sol";
+import "./IERC20.sol";
 
-/**
- * @title Lottery
- * @notice ...
- * @author Goran Vladika
- */
 contract Lottery is ERC721, VRFConsumerBase {
     address public owner;
-    Ticket[] public tickets;
-    uint256 ticketCost = 0.1 * 10**18;
-    uint256 public currentPrizePoolInSusd;
-    uint256 roundStartIndex;
-    uint256 roundEndIndex;
-    //uint256 private roundDuration = 6 hours;
-    uint256 private roundDuration = 5 minutes;
-    uint256 roundEndTime;
 
-    IERC20 public susd;
-
-    bytes32 private keyHash;
-    uint256 private fee;
-    address private vrfCoordinator;
-
+    // ticket is NFT minted to sender upon buying the ticket
     struct Ticket {
         bool isWinning;
         bool isClaimed;
         uint256 prize;
     }
 
+    // stores all tickets, position in array is ticketId
+    Ticket[] public tickets;
+
+    // ERC721 NFT name and symbol
+    string internal constant NAME = "Synthetix Lottery Ticket";
+    string internal constant SYMBOL = "sTICK";
+
+    // tickets are paid for in sUSD
+    IERC20 public susd;
+
+    // ticket cost is fixed to 1 sUSD
+    uint256 public constant ticketCost = 1 * 10**18;
+
+    // lottery round has starting and ending index, and prize pool in sUSD
+    uint256 public currentPrizePoolInSusd;
+    uint256 private roundStartIndex;
+
+    // each rounds lasts for this amount of time
+    uint256 private roundDuration = 6 hours;
+    uint256 roundEndTime;
+
+    // params needed for generating randomness
+    bytes32 private keyHash;
+    uint256 private feeInLink;
+    address private vrfCoordinator;
+
+    // event is emitted when winners of lottery round are selected
+    event WinnersSelected(
+        uint256 indexed ticketIdWinner,
+        uint256 indexed ticketIdSecondPlace,
+        uint256 indexed ticketIdThirdPlace
+    );
+
+    /**
+     * @param _susd address of the sUSD token
+     * @param _vrfCoordinator address of the Chainlink VRF Coordinator
+     * @param _link address of LINK token
+     * @param _keyHash public key against which randomness is generated
+     */
     constructor(
         IERC20 _susd,
         address _vrfCoordinator,
         address _link,
-        bytes32 _keyHash
-    ) ERC721("LotteryTicket", "LTKT") VRFConsumerBase(_vrfCoordinator, _link) {
+        bytes32 _keyHash,
+        uint256 _feeInLink
+    ) ERC721(NAME, SYMBOL) VRFConsumerBase(_vrfCoordinator, _link) {
         owner = msg.sender;
         susd = _susd;
-        roundEndTime = block.timestamp + roundDuration;
-
         vrfCoordinator = _vrfCoordinator;
-        fee = 0.1 * 10**18;
         keyHash = _keyHash;
+        feeInLink = _feeInLink;
+
+        roundEndTime = block.timestamp + roundDuration;
     }
 
-    function enterLottery() external returns (uint256) {
+    /**
+     * @notice lets user buy lottery ticket.
+     * @dev new NFT ticket is minted for sender. `ticketCost` is transfered
+     * from sender to contract
+     * @return ticketId
+     */
+    function buyLotteryTicket() external returns (uint256) {
+        // create ticket and push to array
         tickets.push(Ticket(false, false, 0));
         uint256 ticketId = tickets.length - 1;
+
+        //mint NFT
         super._safeMint(msg.sender, ticketId);
 
+        // transfer sUSD from user to contract
         susd.transferFrom(msg.sender, address(this), ticketCost);
+
+        //update prize pool
         currentPrizePoolInSusd += ticketCost;
 
         return ticketId;
     }
 
+    /**
+     * @notice selects lottery winners of this round
+     * @dev Prerequisites:
+     * -> at least `roundDuration` passed since round start
+     * -> there are at least 3 tickets bought in this round
+     * -> contract has enough LINK to request randomness
+     *
+     * Contract will request radnomness via VRF coordinator. Using given
+     * random number 3 winning tickets will be selected and prizes will be
+     * available for claiming. Prizes are 50%, 35% and 15% of prize pool.
+     * After selecting winners new round is started.
+     */
     function selectRoundWinners() external {
-        require(msg.sender == owner);
-        require(block.timestamp >= roundEndTime, "Round still runs!");
-
-        roundEndIndex = tickets.length - 1;
+        require(block.timestamp >= roundEndTime, "Lottery round still runs!");
         require(
-            (roundEndIndex - roundStartIndex + 1) >= 3,
-            "At least 3 tickets are required!!!"
+            tickets.length - roundStartIndex >= 3,
+            "At least 3 tickets are required!"
         );
 
-        // if no VRF coordinator is set use locally generated random number (for testing in local network)
+        // if no VRF coordinator is set use locally generated random number
+        // (for testing in local network)
         if (vrfCoordinator == address(0)) {
-            updateTickets(_getRandomNumber());
+            _selectWinners(_getRandomNumber());
             return;
         }
 
+        // request randomness using VFR coordinator to select winners
         require(
-            LINK.balanceOf(address(this)) >= fee,
-            "Not enough LINK - fill contract with faucet"
+            LINK.balanceOf(address(this)) >= feeInLink,
+            "Not enough LINK in contract to request randomness"
         );
-        requestRandomness(keyHash, fee, block.timestamp);
+        requestRandomness(keyHash, feeInLink, block.timestamp);
     }
 
+    /**
+     * @notice Selects 3 winning tickets for this lottery round
+     * @dev 3 tickets from this round are chosen using VFR randomness.
+     * Prizes are assigned - 50%, 35% and 15% of prize pool.
+     */
     function claimPrize(uint256 ticketId) external {
         require(
             super.ownerOf(ticketId) == msg.sender,
@@ -95,31 +145,12 @@ contract Lottery is ERC721, VRFConsumerBase {
         susd.transfer(msg.sender, ticket.prize);
     }
 
-    function _startNewRound() private {
-        currentPrizePoolInSusd = 0;
-        roundStartIndex = roundEndIndex + 1;
-        roundEndIndex++;
-        roundEndTime = block.timestamp + roundDuration;
-    }
-
-    function _getRandomNumber() private view returns (uint256) {
-        return
-            uint256(
-                keccak256(abi.encodePacked(block.difficulty, block.timestamp))
-            );
-    }
-
     /**
-     * Callback function used by VRF Coordinator
+     * @notice Selects 3 winning tickets for this lottery round
+     * @dev 3 tickets from this round are chosen using VFR randomness.
+     * Prizes are assigned - 50%, 35% and 15% of prize pool.
      */
-    function fulfillRandomness(bytes32 requestId, uint256 randomness)
-        internal
-        override
-    {
-        updateTickets(randomness);
-    }
-
-    function updateTickets(uint256 randomness) private {
+    function _selectWinners(uint256 randomness) private {
         uint256 nonce = 0;
         uint256 randomNumber = randomness;
 
@@ -150,24 +181,61 @@ contract Lottery is ERC721, VRFConsumerBase {
         ticketThirdPrize.isWinning = true;
         ticketThirdPrize.prize = (currentPrizePoolInSusd / 100) * 15;
 
+        // emit winners
+        emit WinnersSelected(winningIndex, secondPrizeIndex, thirdPrizeIndex);
+
+        // refresh state for new round
         _startNewRound();
     }
 
+    /**
+     * @notice Refresh state to start new round
+     */
+    function _startNewRound() private {
+        currentPrizePoolInSusd = 0;
+        roundStartIndex = tickets.length;
+        roundEndTime = block.timestamp + roundDuration;
+    }
+
+    /**
+     * Callback function used by VRF Coordinator
+     */
+    function fulfillRandomness(bytes32 requestId, uint256 randomness)
+        internal
+        override
+    {
+        _selectWinners(randomness);
+    }
+
+    /**
+     * @notice Helper function to generate random number, only used for testing in local network
+     */
+    function _getRandomNumber() private view returns (uint256) {
+        return
+            uint256(
+                keccak256(abi.encodePacked(block.difficulty, block.timestamp))
+            );
+    }
+
+    /**
+     * @notice select random index from inputs - randomness and nonce
+     * @return random index
+     */
     function _getRandomIndex(uint256 randomNumber, uint256 nonce)
         private
         view
         returns (uint256)
     {
         uint256 tempHash = uint256(keccak256(abi.encode(randomNumber, nonce)));
-        uint256 range = roundEndIndex - roundStartIndex + 1;
+        uint256 range = tickets.length - roundStartIndex;
         return roundStartIndex + (tempHash % range);
     }
 
+    /**
+     * @notice getter for tickets
+     * @return tickets
+     */
     function getTickets() public view returns (Ticket[] memory) {
         return tickets;
-    }
-
-    function close() public {
-        selfdestruct(payable(owner));
     }
 }

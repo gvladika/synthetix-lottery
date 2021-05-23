@@ -1,118 +1,117 @@
 const Lottery = artifacts.require("Lottery");
-const IERC20 = artifacts.require("IERC20");
 const MockSusdToken = artifacts.require("MockSusdToken");
+const { expectEvent, expectRevert } = require("@openzeppelin/test-helpers");
+const timeMachine = require("ganache-time-traveler");
 
 let lottery;
 let susd;
-let abe, bill, cai, dona, ena;
+let abe, bill, cai, dona;
+let addresZero = "0x0000000000000000000000000000000000000000";
 
 function tokens(n) {
   return web3.utils.toWei(n.toString(), "ether");
 }
 
-beforeEach(async () => {
-  [abe, bill, cai, dona] = await web3.eth.getAccounts();
-  susd = await MockSusdToken.new();
-  lottery = await Lottery.new(
-    susd.address,
-    "0x0000000000000000000000000000000000000000",
-    "0x0000000000000000000000000000000000000000",
-    "0x0000000000000000000000000000000000000000"
-  );
+contract("Lottery", async () => {
+  // create contracts and send some Mock SUSD to participants
+  before(async () => {
+    [abe, bill, cai, dona] = await web3.eth.getAccounts();
+    susd = await MockSusdToken.new();
+    lottery = await Lottery.new(susd.address, addresZero, addresZero, addresZero, "0");
 
-  await susd.transfer(bill, tokens(0.3));
-  await susd.transfer(cai, tokens(0.1));
-  await susd.transfer(dona, tokens(0.15));
-});
+    await susd.transfer(bill, tokens(20));
+    await susd.transfer(cai, tokens(20));
+    await susd.transfer(dona, tokens(20));
+  });
 
-describe("Lottery", () => {
-  it("deploys a contract", () => {
-    console.log(lottery.address);
-    console.log(susd.address);
+  it("has correct initial state", async () => {
     assert.ok(susd.address);
     assert.ok(lottery.address);
+
+    prizePool = await lottery.currentPrizePoolInSusd();
+    assert.equal(prizePool, 0);
+
+    tickets = await lottery.getTickets();
+    assert.equal(tickets.length, 0);
   });
 
-  it("has access to susd balances", async () => {
+  it("lets user to buy lottery ticket", async () => {
     const billBalance = await susd.balanceOf(bill);
-    assert.equal(billBalance, tokens(0.3));
+    assert.equal(billBalance, tokens(20));
 
-    const caiBalance = await susd.balanceOf(cai);
-    assert.equal(caiBalance, tokens(0.1));
+    // user needs to approve sUSD for spending
+    await susd.approve(lottery.address, tokens(1), { from: bill });
 
-    const donaBalance = await susd.balanceOf(dona);
-    assert.equal(donaBalance, tokens(0.15));
+    //buy ticket
+    billsTicket = await lottery.buyLotteryTicket({ from: bill });
+    assert.equal(billsTicket.logs[0].args.tokenId.toString(), tokens(0));
 
-    const lotteryBalance = await susd.balanceOf(lottery.address);
-    assert.equal(lotteryBalance, tokens(0));
+    tickets = await lottery.getTickets();
+    assert.equal(tickets.length, 1);
 
-    assert.ok(lottery.susd);
+    numOfBillsTickets = await lottery.balanceOf(bill);
+    assert.equal(numOfBillsTickets, 1);
+
+    prizePool = await lottery.currentPrizePoolInSusd();
+    assert.equal(prizePool.toString(), tokens(1));
   });
 
-  it("can receive susd to prize pool", async () => {
-    // Bill enters lottery 2 times
-    await susd.approve(lottery.address, tokens(0.1), { from: bill });
-    await lottery.enterLottery({ from: bill });
-    await susd.approve(lottery.address, tokens(0.1), { from: bill });
-    await lottery.enterLottery({ from: bill });
+  it("selects lottery winners", async () => {
+    await expectRevert(lottery.selectRoundWinners(), "Lottery round still runs!");
+    //advance 6 hours
+    await timeMachine.advanceTimeAndBlock(6 * 60 * 60);
 
-    let billBalance = await susd.balanceOf(bill);
-    assert(billBalance, tokens(0.1));
+    // 3 tickets at least are needed
+    await expectRevert(lottery.selectRoundWinners(), "At least 3 tickets are required!");
 
-    // Cai enters lottery
-    await susd.approve(lottery.address, tokens(0.1), { from: cai });
-    await lottery.enterLottery({ from: cai });
+    await susd.approve(lottery.address, tokens(1), { from: cai });
+    await lottery.buyLotteryTicket({ from: cai });
 
-    let tickets = await lottery.getTickets();
-    console.log(tickets);
-    let caiBalance = await susd.balanceOf(cai);
-    assert.equal(caiBalance, tokens(0));
+    await susd.approve(lottery.address, tokens(1), { from: dona });
+    await lottery.buyLotteryTicket({ from: dona });
 
-    // Dona enters lottery
-    await susd.approve(lottery.address, tokens(0.1), { from: dona });
-    await lottery.enterLottery({ from: dona });
+    // select winners
+    const receipt = await lottery.selectRoundWinners();
+    expectEvent(receipt, "WinnersSelected");
 
-    let donaBalance = await susd.balanceOf(dona);
-    assert.equal(donaBalance, tokens(0.05));
-
-    // Check pool size
-    lotteryBalance = await susd.balanceOf(lottery.address);
-    console.log(lotteryBalance.toString());
-    assert.equal(lotteryBalance, tokens(0.4));
-
-    // Check NFTs representing tickets are minted
+    // Check NFTs are minted and prizes are correctly calculated
     tickets = await lottery.getTickets();
-    console.log(tickets);
-    assert.equal(tickets.length, 4);
+    assert.equal(tickets.length, 3);
+    assert.equal(tickets.filter((x) => x.isWinning).length, 3);
+    assert.equal(tickets.filter((x) => x.isClaimed).length, 0);
+    assert.equal(tickets.filter((x) => x.prize == tokens(1.5)).length, 1);
+    assert.equal(tickets.filter((x) => x.prize == tokens(1.05)).length, 1);
+    assert.equal(tickets.filter((x) => x.prize == tokens(0.45)).length, 1);
+  });
 
-    // Bill bought 2 tickets
-    let billsTickets = await lottery.balanceOf(bill);
-    assert.equal(billsTickets, 2);
-
-    // Cai boght 1 ticket
-    let caiTickets = await lottery.balanceOf(cai);
-    assert.equal(caiTickets, 1);
-
-    await lottery.selectRoundWinners();
+  it("allows users to claim prizes", async () => {
     tickets = await lottery.getTickets();
-    console.log(tickets);
 
-    await lottery.claimPrize(0, { from: bill });
+    // claim bills winning ticket
+    const billsTicketIndex = 0;
+    let billsTicket = tickets[billsTicketIndex];
+    assert(billsTicket.isWinning);
+    assert(!billsTicket.isClaimed);
+
+    const billSusdBalanceBefore = await susd.balanceOf(bill);
+    const lotterySusdBalanceBefore = await susd.balanceOf(lottery.address);
+
+    await lottery.claimPrize(billsTicketIndex, { from: bill });
+
+    const billSusdBalanceAfter = await susd.balanceOf(bill);
+    const lotterySusdBalanceAfter = await susd.balanceOf(lottery.address);
+
+    // check bill's balance increased, and lottery contract's balance decreased
+    assert(billSusdBalanceAfter > billSusdBalanceBefore);
+    assert(lotterySusdBalanceAfter < lotterySusdBalanceBefore);
+
+    // check ticket is not claimable anymore
     tickets = await lottery.getTickets();
-    console.log(tickets);
-
-    await susd.approve(lottery.address, tokens(0.2), { from: bill });
-    await lottery.enterLottery({ from: bill });
-    await lottery.enterLottery({ from: bill });
-
-    await susd.approve(lottery.address, tokens(0.2), { from: abe });
-    await lottery.enterLottery({ from: abe });
-    await lottery.enterLottery({ from: abe });
-
-    await lottery.selectRoundWinners();
-    tickets = await lottery.getTickets();
-    console.log(tickets);
-
-    lottery.close();
+    billsTicket = tickets[billsTicketIndex];
+    assert(billsTicket.isClaimed);
+    await expectRevert(
+      lottery.claimPrize(billsTicketIndex, { from: bill }),
+      "Ticket already claimed"
+    );
   });
 });

@@ -12,6 +12,10 @@
     "@chainlink/contracts": "^0.1.7",
     "@openzeppelin/contracts": "^4.1.0",
     "@truffle/hdwallet-provider": "^1.4.0",
+    "ganache-time-traveler": "^1.0.15",
     "web3-provider-engine": "^16.0.1"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.11"
   }
 }
