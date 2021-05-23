@@ -144,9 +144,8 @@ contract Lottery is ERC721, VRFConsumerBase {
     }
 
     /**
-     * @notice Selects 3 winning tickets for this lottery round
-     * @dev 3 tickets from this round are chosen using VFR randomness.
-     * Prizes are assigned - 50%, 35% and 15% of prize pool.
+     * @notice Lets user to claim his prize
+     * @dev Owner of the ticket will be transfered his prize sUSD
      */
     function claimPrize(uint256 ticketId) external {
         require(
