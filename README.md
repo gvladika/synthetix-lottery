@@ -52,6 +52,9 @@ Prizes are calculated for winners and made available for claiming. New round is 
 Lets user to claim his prize. Owner of the ticket will be transfered his prize sUSD. Tickets are NFT tokens which means that prize-claimer doesn't have to be initial buyer of the ticket.
 
 ## Frontend mockup
+
+Here's a mockup how a simple frontend could look like to interact with Lottery contract. Tickets belonging to specific owner can be filter using `getTicketsByOwner` view function
+
 ![title](./synthetix_lottery.png)
 
 ## Test
@@ -89,11 +92,12 @@ $ truffle test
 
 ## Deploy to testnet
 
-Currently contract is deployed to Kovan testnet. It can always be re-deployed:
+Currently contract is deployed to Kovan testnet -> https://kovan.etherscan.io/address/0x092dde4411cee5bf575ef7f7b58fdd9da76dda09
+
+It can always be re-deployed:
 
 ```
 truffle migrate --network kovan
 ```
 
 Assumption is that there are `.secret` and `.endpoint` files created in dapp root directory which contain mnemonic phrase and Infura endpoint for Kovan network, respectively.
-

@@ -215,12 +215,13 @@ contract Lottery is ERC721, VRFConsumerBase {
     }
 
     /**
-     * Callback function used by VRF Coordinator
+     * @notice Callback function used by VRF Coordinator
      */
     function fulfillRandomness(bytes32 requestId, uint256 randomness)
         internal
         override
     {
+        requestId.length;
         _selectWinners(randomness);
     }
 
@@ -254,5 +255,25 @@ contract Lottery is ERC721, VRFConsumerBase {
      */
     function getTickets() public view returns (Ticket[] memory) {
         return tickets;
+    }
+
+    /**
+     * @notice get all tickets owned by _owner
+     * @return ticket ids
+     */
+    function getTicketsByOwner(address _owner)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        uint256[] memory result = new uint256[](super.balanceOf(_owner));
+        uint256 counter = 0;
+        for (uint256 i = 0; i < tickets.length; i++) {
+            if (super.ownerOf(i) == _owner) {
+                result[counter] = i;
+                counter++;
+            }
+        }
+        return result;
     }
 }

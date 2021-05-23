@@ -173,12 +173,11 @@ contract("Lottery", async () => {
     assert.equal(tickets.filter((x) => x.isWinning && !x.isClaimed).length, 4);
 
     // bill claims his unclaimed winning tickets
-    for (const ticket of tickets) {
+    billsTicketIds = await lottery.getTicketsByOwner(bill);
+    for (const ticketId of billsTicketIds) {
+      ticket = tickets[ticketId.toNumber()];
       if (ticket.isWinning && !ticket.isClaimed) {
-        owner = await lottery.ownerOf(tickets.indexOf(ticket));
-        if (owner == bill) {
-          await lottery.claimPrize(tickets.indexOf(ticket), { from: bill });
-        }
+        await lottery.claimPrize(tickets.indexOf(ticket), { from: bill });
       }
     }
 
