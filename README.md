@@ -53,9 +53,9 @@ Lets user to claim his prize. Owner of the ticket will be transfered his prize s
 
 ## Test
 
-There is a set of test cases that can be used to verify all the functionalities in local network.
+There is a set of test cases that can be used to verify all the functionalities in local network. Make sure Ganache is running.
 
-After cloning the project, first step is to install dependencies:
+After cloning the project, next step is to install dependencies:
 
 ```
 npm install
@@ -91,3 +91,5 @@ Currently contract is deployed to Kovan testnet. It can always be re-deployed:
 ```
 truffle migrate --network kovan
 ```
+
+Assumption is that there are `.secret` and `.endpoint` files created in dapp root directory which contain mnemonic phrase and Infura endpoint for Kovan network, respectively.

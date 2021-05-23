@@ -1,9 +1,16 @@
 const HDWalletProvider = require("@truffle/hdwallet-provider");
 const NonceTrackerSubprovider = require("web3-provider-engine/subproviders/nonce-tracker");
-
 const fs = require("fs");
-const SECRET = fs.readFileSync(".secret").toString().trim();
-const ENDPOINT = fs.readFileSync(".endpoint").toString().trim();
+
+let SECRET, ENDPOINT;
+
+if (fs.existsSync(".secret")) {
+  SECRET = fs.readFileSync(".secret").toString().trim();
+}
+
+if (fs.existsSync(".endpoint")) {
+  ENDPOINT = fs.readFileSync(".endpoint").toString().trim();
+}
 
 module.exports = {
   networks: {
