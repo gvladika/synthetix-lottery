@@ -5,7 +5,7 @@ https://gitcoin.co/issue/snxgrants/open-defi-hackathon/8/100025689
 
 ## About
 
-Synthetix Lottery lets users buy tickets with their sUSD. Tickets are represented as NFTs, minted upon purchase. Since tickets conform to ERC721, they can be transfered and claimed by the current holder. Ticket price is fixed to 1 sUSD. Every round of lottery lasts for limited amount of time. In addition, to successfully finish round, at least 3 tickets must be bought. Then, anyone can call `selectRoundWinners` function which will use Chainlink's VRF to randomly select 3 winners. Owners of tickets can claim their prize at any point. As soon as round finishes and winning tickets are selected new round starts.
+Synthetix Lottery lets users buy tickets with their sUSD. Tickets are represented as NFTs, minted upon purchase. Since tickets conform to ERC721, they can be transferred and claimed by the current holder. Ticket price is fixed to 1 sUSD. Every round of lottery lasts for limited amount of time. In addition, to successfully finish round, at least 3 tickets must be bought. Then, anyone can call `selectRoundWinners` function which will use Chainlink's VRF to randomly select 3 winners. Owners of tickets can claim their prize at any point. As soon as round finishes and winning tickets are selected new round starts.
 
 ## Implementation
 
@@ -21,7 +21,7 @@ All the functionality is implemented in Lottery.sol. It extends from ERC721 and 
 
 `isWinning` - false by default, true if ticket is selected for prize when round is finished  
 `isClaimed` - false by default, true if prize is claimed  
-`prize` - prize is sUSD which is avaiable to ticket owner
+`prize` - prize is sUSD which is available to ticket owner
 
 There are 3 main external functions available to users:
 
@@ -43,13 +43,13 @@ Anyone can call this function, however there are some prerequisites for it:
 - there are at least 3 tickets bought in this round
 - contract has enough LINK to request randomness
 
-Contract will request radnomness via VRF coordinator. There is one exception - when contract is running in local development network, no VRF is called, but pseudo-randomness is generated locally. Selecting 3 random winners from single random number received from VRF is done by additional hashing (performed locally) of given number and nonce.
+Contract will request randomness via VRF coordinator. There is one exception - when contract is running in local development network, no VRF is called, but pseudo-randomness is generated locally. Selecting 3 random winners from single random number received from VRF is done by additional hashing (performed locally) of given number and nonce.
 
 Prizes are calculated for winners and made available for claiming. New round is now ready to start automatically - pointer to the first ticket of new round is updated, along with the new round end-time. Prize pool also resets to 0 sUSD.
 
 **claimPrize**
 
-Lets user to claim his prize. Owner of the ticket will be transfered his prize sUSD. Tickets are NFT tokens which means that prize-claimer doesn't have to be initial buyer of the ticket.
+Lets user to claim his prize. Owner of the ticket will be transferred his prize sUSD. Tickets are NFT tokens which means that prize-claimer doesn't have to be initial buyer of the ticket.
 
 ## Frontend mockup
 
@@ -83,7 +83,7 @@ $ truffle test
     ✓ lets user to buy lottery ticket (898ms)
     ✓ selects lottery winners (1907ms)
     ✓ allows users to claim prizes (315ms)
-    ✓ allows claims of transfered tickets (456ms)
+    ✓ allows claims of transferred tickets (456ms)
     ✓ runs multiple rounds (1923ms)
 
 
