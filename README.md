@@ -51,6 +51,9 @@ Prizes are calculated for winners and made available for claiming. New round is 
 
 Lets user to claim his prize. Owner of the ticket will be transfered his prize sUSD. Tickets are NFT tokens which means that prize-claimer doesn't have to be initial buyer of the ticket.
 
+## Frontend mockup
+![title](./synthetix_lottery.png)
+
 ## Test
 
 There is a set of test cases that can be used to verify all the functionalities in local network. Make sure Ganache is running.
@@ -93,3 +96,4 @@ truffle migrate --network kovan
 ```
 
 Assumption is that there are `.secret` and `.endpoint` files created in dapp root directory which contain mnemonic phrase and Infura endpoint for Kovan network, respectively.
+
