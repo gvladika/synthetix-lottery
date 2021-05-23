@@ -2,7 +2,6 @@ const Lottery = artifacts.require("Lottery");
 const MockSusdToken = artifacts.require("MockSusdToken");
 
 module.exports = async function (deployer, network) {
-  console.log("network: ", network);
   if (network == "kovan") {
     const kovanSusd = "0x57ab1ec28d129707052df4df418d58a2d46d5f51";
     const kovanVrfCoordinator = "0xdD3782915140c8f3b190B5D67eAc6dc5760C46E9";
@@ -10,6 +9,7 @@ module.exports = async function (deployer, network) {
     const kovanKeyHash = "0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4";
     //0.1 * 10 ** 18
     const kovanFeeInLink = "100000000000000000";
+
     deployer.deploy(
       Lottery,
       kovanSusd,
@@ -18,7 +18,9 @@ module.exports = async function (deployer, network) {
       kovanKeyHash,
       kovanFeeInLink
     );
-  } else {
+  }
+
+  if (network == "development") {
     await deployer.deploy(MockSusdToken);
     const susd = await MockSusdToken.deployed();
 
