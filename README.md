@@ -51,11 +51,11 @@ Prizes are calculated for winners and made available for claiming. New round is 
 
 Lets user to claim his prize. Owner of the ticket will be transferred his prize sUSD. Tickets are NFT tokens which means that prize-claimer doesn't have to be initial buyer of the ticket.
 
-## Frontend mockup
+## Frontend (developed after hackathon end)
 
-Here's a mockup how a simple frontend could look like to interact with Lottery contract. Tickets belonging to specific owner can be filter using `getTicketsByOwner` view function
+Simple frontend has been developed in React, using semantic-ui, to allow interaction with contract - buying tickets, selecting winners, checking the status of tickets, etc.
 
-![title](./synthetix_lottery.png)
+![title](./synthetix-lottery-frontend.png)
 
 ## Test
 

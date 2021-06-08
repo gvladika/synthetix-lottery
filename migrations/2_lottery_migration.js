@@ -24,7 +24,7 @@ module.exports = async function (deployer, network) {
     await deployer.deploy(MockSusdToken);
     const susd = await MockSusdToken.deployed();
 
-    deployer.deploy(
+    await deployer.deploy(
       Lottery,
       susd.address,
       "0x0000000000000000000000000000000000000000",

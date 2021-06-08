@@ -43,7 +43,7 @@ contract Lottery is ERC721, VRFConsumerBase {
 
     // each rounds lasts for this amount of time
     uint256 private roundDuration = 6 hours;
-    uint256 roundEndTime;
+    uint256 public roundEndTime;
 
     // params needed for generating randomness
     bytes32 private keyHash;
