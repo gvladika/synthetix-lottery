@@ -57,6 +57,13 @@ Simple frontend has been developed in React, using semantic-ui, to allow interac
 
 ![title](./synthetix-lottery-frontend.png)
 
+Before starting the server contract ABIs need to be linked to frontend app:
+
+```
+cd frontend/node_modules/
+ln -s ../../build/contracts/ contracts
+```
+
 ## Test
 
 There is a set of test cases that can be used to verify all the functionalities in local network. Make sure Ganache is running.
